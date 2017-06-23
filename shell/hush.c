@@ -52,7 +52,6 @@
  *      make here documents optional
  *
  * Bash compat TODO:
- *      redirection of stdout+stderr: &> and >&
  *      reserved words: function select
  *      advanced test: [[ ]]
  *      process substitution: <(list) and >(list)
@@ -497,6 +496,11 @@ typedef enum redir_type {
 	REDIRECT_HEREDOC   = 4,
 	REDIRECT_HEREDOC2  = 5, /* REDIRECT_HEREDOC after heredoc is loaded */
 
+#if ENABLE_HUSH_BASH_COMPAT
+	REDIRFD_TO_FILE2   = -4,/* REDIRFD_TO_FILE 2>&1 */
+#else
+#define REDIRFD_TO_FILE2   REDIRFD_TO_FILE
+#endif
 	REDIRFD_CLOSE      = -3,
 	REDIRFD_SYNTAX_ERR = -2,
 	REDIRFD_TO_FILE    = -1,
@@ -3633,8 +3637,12 @@ static int parse_redir_right_fd(o_string *as_string, struct in_str *input)
 
 //TODO: this is the place to catch ">&file" bashism (redirect both fd 1 and 2)
 
+#if ENABLE_HUSH_BASH_COMPAT
+	return REDIRFD_TO_FILE2;
+#else
 	bb_error_msg("ambiguous redirect");
 	return REDIRFD_SYNTAX_ERR;
+#endif
 }
 
 /* Return code is 0 normal, 1 if a syntax error is detected
@@ -3642,6 +3650,9 @@ static int parse_redir_right_fd(o_string *as_string, struct in_str *input)
 static int parse_redirect(struct parse_context *ctx,
 		int fd,
 		redir_type style,
+#if ENABLE_HUSH_BASH_COMPAT
+		int bash_redir,
+#endif
 		struct in_str *input)
 {
 	struct command *command = ctx->command;
@@ -3653,8 +3664,22 @@ static int parse_redirect(struct parse_context *ctx,
 	if (style != REDIRECT_HEREDOC) {
 		/* Check for a '>&1' type redirect */
 		dup_num = parse_redir_right_fd(&ctx->as_string, input);
+#if ENABLE_HUSH_BASH_COMPAT
+		if (bash_redir) {
+			if (dup_num != REDIRFD_TO_FILE) {
+				bb_error_msg("ambiguous redirect");
+				return 1;
+			}
+			dup_num = REDIRFD_TO_FILE2;
+		}
+		if (dup_num == REDIRFD_TO_FILE2 && fd != -1) {
+			bb_error_msg("ambiguous redirect");
+			return 1;
+		}
+#else
 		if (dup_num == REDIRFD_SYNTAX_ERR)
 			return 1;
+#endif
 	} else {
 		int ch = i_peek(input);
 		dup_num = (ch == '-'); /* HEREDOC_SKIPTABS bit is 1 */
@@ -3692,7 +3717,7 @@ static int parse_redirect(struct parse_context *ctx,
 				redir_table[style].descrip);
 
 	redir->rd_dup = dup_num;
-	if (style != REDIRECT_HEREDOC && dup_num != REDIRFD_TO_FILE) {
+	if (style != REDIRECT_HEREDOC && dup_num != REDIRFD_TO_FILE && dup_num != REDIRFD_TO_FILE2) {
 		/* Erik had a check here that the file descriptor in question
 		 * is legit; I postpone that to "run time"
 		 * A "-" representation of "close me" shows up as a -3 here */
@@ -4535,6 +4560,7 @@ static struct pipe *parse_stream(char **pstring,
 		int next;
 		int redir_fd;
 		redir_type redir_style;
+		IF_NOT_HUSH_BASH_COMPAT(const) int bash_redir = 0;
 
 		ch = i_getch(input);
 		debug_printf_parse(": ch=%c (%d) escape=%d\n",
@@ -4757,6 +4783,15 @@ static struct pipe *parse_stream(char **pstring,
 		/* Catch <, > before deciding whether this word is
 		 * an assignment. a=1 2>z b=2: b=2 is still assignment */
 		switch (ch) {
+#if ENABLE_HUSH_BASH_COMPAT
+		case '&':
+			if (i_peek(input) != '>')
+				break;
+			ch = i_getch(input);
+			nommu_addchr(&ctx.as_string, ch);
+			next = i_peek(input);
+			bash_redir = 1;
+#endif
 		case '>':
 			redir_fd = redirect_opt_num(&dest);
 			if (done_word(&dest, &ctx)) {
@@ -4774,7 +4809,7 @@ static struct pipe *parse_stream(char **pstring,
 				goto parse_error;
 			}
 #endif
-			if (parse_redirect(&ctx, redir_fd, redir_style, input))
+			if (parse_redirect(&ctx, redir_fd, redir_style, IF_HUSH_BASH_COMPAT(bash_redir,) input))
 				goto parse_error;
 			continue; /* back to top of while (1) */
 		case '<':
@@ -4800,7 +4835,7 @@ static struct pipe *parse_stream(char **pstring,
 				goto parse_error;
 			}
 #endif
-			if (parse_redirect(&ctx, redir_fd, redir_style, input))
+			if (parse_redirect(&ctx, redir_fd, redir_style, IF_HUSH_BASH_COMPAT(0,) input))
 				goto parse_error;
 			continue; /* back to top of while (1) */
 		case '#':
@@ -6465,7 +6500,7 @@ static int setup_redirects(struct command *prog, int squirrel[])
 			continue;
 		}
 
-		if (redir->rd_dup == REDIRFD_TO_FILE) {
+		if (redir->rd_dup == REDIRFD_TO_FILE || redir->rd_dup == REDIRFD_TO_FILE2) {
 			/* "rd_fd<*>file" case (<*> is <,>,>>,<>) */
 			char *p;
 			if (redir->rd_filename == NULL) {
@@ -6505,10 +6540,19 @@ static int setup_redirects(struct command *prog, int squirrel[])
 				}
 			} else {
 				xdup2(openfd, redir->rd_fd);
+#if ENABLE_HUSH_BASH_COMPAT
+				switch (redir->rd_dup) {
+				case REDIRFD_TO_FILE2:
+					xdup2(redir->rd_fd, 2);
+				case REDIRFD_TO_FILE:
+					close(openfd);
+				}
+#else
 				if (redir->rd_dup == REDIRFD_TO_FILE)
 					/* "rd_fd > FILE" */
 					close(openfd);
 				/* else: "rd_fd > rd_dup" */
+#endif
 			}
 		}
 	}
