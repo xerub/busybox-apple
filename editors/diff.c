@@ -158,6 +158,7 @@ enum {                  /* Commandline flags */
 	FLAG_p,         /* not implemented */
 	FLAG_B,
 	FLAG_E,         /* not implemented */
+	FLAG_Y,
 };
 #define FLAG(x) (1 << FLAG_##x)
 
@@ -677,6 +678,33 @@ static bool diff(FILE* fp[2], char *file[2])
 			int lowa;
 			vec_t span, *cvp = vec;
 
+			if (option_mask32 & FLAG(Y)) {
+				int a1 = MAX(1, (*cvp)[0].a);
+				int b1 = MIN(nlen[0], vec[idx][0].b);
+				int a2 = MAX(1, (*cvp)[1].a);
+				int b2 = MIN(nlen[1], vec[idx][1].b);
+
+				if (a1 > b1) {
+					printf("%da%d", b1, a2);
+					if (a2 != b2)
+						printf(",%d", b2);
+				} else if (a2 > b2) {
+					printf("%d", a1);
+					if (a1 != b1)
+						printf(",%d", b1);
+					printf("d%d", b2);
+				} else {
+					printf("%d", a1);
+					if (a1 != b1)
+						printf(",%d", b1);
+					printf("c%d", a2);
+					if (a2 != b2)
+						printf(",%d", b2);
+				}
+				printf("\n");
+				goto next;
+			}
+
 			if (!anychange) {
 				/* Print the context/unidiff header first time through */
 				printf("--- %s\n", label[0] ? label[0] : file[0]);
@@ -706,6 +734,7 @@ static bool diff(FILE* fp[2], char *file[2])
 				for (j = 0; j < 2; j++)
 					fetch(&ft[j], ix[j], (*cvp)[j].a, (*cvp)[j].b, j ? '+' : '-');
 			}
+ next:;
 		}
 		anychange = true;
  cont:
@@ -979,6 +1008,31 @@ int diff_main(int argc UNUSED_PARAM, char **argv)
 	char *file[2], *s_start = NULL;
 	llist_t *L_arg = NULL;
 
+	int k = 0;
+	for (i = 1; i < argc; i++) {
+		int j = 0;
+		if (!strcmp(argv[i], "--old-group-format=%df%(f=l?:,%dl)d%dE\n")) {
+			j = 1;
+		}
+		if (!strcmp(argv[i], "--new-group-format=%dea%dF%(F=L?:,%dL)\n")) {
+			j = 2;
+		}
+		if (!strcmp(argv[i], "--changed-group-format=%df%(f=l?:,%dl)c%dF%(F=L?:,%dL)\n")) {
+			j = 4;
+		}
+		if (!strcmp(argv[i], "--unchanged-group-format=")) {
+			j = 8;
+		}
+		if (j) {
+			k |= j;
+			for (j = i + 1; j < argc; j++) {
+				argv[j - 1] = argv[j];
+			}
+			argv[--argc] = NULL;
+			i--;
+		}
+	}
+
 	INIT_G();
 
 	/* exactly 2 params; collect multiple -L <label>; -U N */
@@ -1028,6 +1082,11 @@ int diff_main(int argc UNUSED_PARAM, char **argv)
 	) {
 		/* files are physically the same; no need to compare them */
 		return STATUS_SAME;
+	}
+
+	if (k == 15) {
+		option_mask32 |= FLAG(Y);
+		opt_U_context = 0;
 	}
 
 	if (S_ISDIR(stb[0].st_mode) && S_ISDIR(stb[1].st_mode)) {
