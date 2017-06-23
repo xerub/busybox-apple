@@ -742,6 +742,145 @@ static int path_parse(char ***p)
 	return npth;
 }
 
+#if ENABLE_FEATURE_CANONICALIZE_PATHS
+#define PATH_SEP '/'
+
+/*
+ * Canonicalize path, and return a new path.  Do everything in place.
+ * The new path differs from path in:
+ *	Multiple `/'s are collapsed to a single `/'.
+ *	Leading `./'s and trailing `/.'s are removed.
+ *	Trailing `/'s are removed.
+ *	Non-leading `../'s and trailing `..'s are handled by removing
+ *	portions of the path.
+ * Well formed UNC paths are modified only in the local part.
+ */
+static void
+canonicalize_pathname (char *path)
+{
+    char *p, *s;
+    int len;
+    char *lpath = path;	/* path without leading UNC part */
+
+    /* Detect and preserve UNC paths: //server/... */
+    if (path[0] == PATH_SEP && path[1] == PATH_SEP) {
+	p = path + 2;
+	while (p[0] && p[0] != '/')
+	    p++;
+	if (p[0] == '/' && p > path + 2)
+	    lpath = p;
+    }
+
+    if (!lpath[0] || !lpath[1])
+	return;
+
+    /* Collapse multiple slashes */
+    p = lpath;
+    while (*p) {
+	if (p[0] == PATH_SEP && p[1] == PATH_SEP) {
+	    s = p + 1;
+	    while (*(++s) == PATH_SEP);
+	    overlapping_strcpy (p + 1, s);
+	}
+	p++;
+    }
+
+    /* Collapse "/./" -> "/" */
+    p = lpath;
+    while (*p) {
+	if (p[0] == PATH_SEP && p[1] == '.' && p[2] == PATH_SEP)
+	    overlapping_strcpy (p, p + 2);
+	else
+	    p++;
+    }
+
+    /* Remove trailing slashes */
+    p = lpath + strlen (lpath) - 1;
+    while (p > lpath && *p == PATH_SEP)
+	*p-- = 0;
+
+    /* Remove leading "./" */
+    if (lpath[0] == '.' && lpath[1] == PATH_SEP) {
+	if (lpath[2] == 0) {
+	    lpath[1] = 0;
+	    return;
+	} else {
+	    memmove(lpath, lpath + 2, p - lpath);
+	}
+    }
+
+    /* Remove trailing "/" or "/." */
+    len = strlen (lpath);
+    if (len < 2)
+	return;
+    if (lpath[len - 1] == PATH_SEP) {
+	lpath[len - 1] = 0;
+    } else {
+	if (lpath[len - 1] == '.' && lpath[len - 2] == PATH_SEP) {
+	    if (len == 2) {
+		lpath[1] = 0;
+		return;
+	    } else {
+		lpath[len - 2] = 0;
+	    }
+	}
+    }
+
+    /* Collapse "/.." with the previous part of path */
+    p = lpath;
+    while (p[0] && p[1] && p[2]) {
+	if ((p[0] != PATH_SEP || p[1] != '.' || p[2] != '.')
+	    || (p[3] != PATH_SEP && p[3] != 0)) {
+	    p++;
+	    continue;
+	}
+
+	/* search for the previous token */
+	s = p - 1;
+	while (s >= lpath && *s != PATH_SEP)
+	    s--;
+
+	s++;
+
+	/* If the previous token is "..", we cannot collapse it */
+	if (s[0] == '.' && s[1] == '.' && s + 2 == p) {
+	    p += 3;
+	    continue;
+	}
+
+	if (p[3] != 0) {
+	    if (s == lpath && *s == PATH_SEP) {
+		/* "/../foo" -> "/foo" */
+		overlapping_strcpy (s + 1, p + 4);
+	    } else {
+		/* "token/../foo" -> "foo" */
+		overlapping_strcpy (s, p + 4);
+	    }
+	    p = (s > lpath) ? s - 1 : s;
+	    continue;
+	}
+
+	/* trailing ".." */
+	if (s == lpath) {
+	    /* "token/.." -> "." */
+	    if (lpath[0] != PATH_SEP) {
+		lpath[0] = '.';
+	    }
+	    lpath[1] = 0;
+	} else {
+	    /* "foo/token/.." -> "foo" */
+	    if (s == lpath + 1)
+		s[0] = 0;
+	    else
+		s[-1] = 0;
+	    break;
+	}
+
+	break;
+    }
+}
+#endif
+
 /* Complete command, directory or file name.
  * Return the length of the prefix used for matching.
  */
@@ -795,6 +934,23 @@ static NOINLINE unsigned complete_cmd_dir_file(const char *command, int type)
 		struct stat st;
 		char *found;
 
+#if ENABLE_FEATURE_CANONICALIZE_PATHS
+		/*
+		 * Consider the following:
+		 *
+		 * $ cd /
+		 * $ ls -l tmp
+		 * lrwxr-xr-x@ 1 root  wheel  11 Feb 29  2020 tmp -> private/tmp
+		 * $ ls -l /tmp/../<TAB>
+		 *
+		 * We want completion in "/" not in "/private/".
+		 *
+		 * NB: we don't need to make a copy as long as:
+		 * 1. canonicalize_pathname() is stable
+		 * 2. special case "." is not touching the string
+		 */
+		canonicalize_pathname(paths[i]);
+#endif
 		dir = opendir(paths[i]);
 		if (!dir)
 			continue; /* don't print an error */

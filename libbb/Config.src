@@ -150,6 +150,14 @@ config FEATURE_TAB_COMPLETION
 	help
 	  Enable tab completion.
 
+config FEATURE_CANONICALIZE_PATHS
+	bool "Canonicalize paths"
+	default n
+	depends on FEATURE_TAB_COMPLETION
+	help
+	  Canonicalize paths internally before attempting completion.
+	  This fixes completions of parents of symlinked directories.
+
 config FEATURE_USERNAME_COMPLETION
 	bool "Username completion"
 	default y
