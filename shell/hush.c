@@ -845,6 +845,7 @@ static int builtin_eval(char **argv) FAST_FUNC;
 static int builtin_exec(char **argv) FAST_FUNC;
 static int builtin_exit(char **argv) FAST_FUNC;
 static int builtin_export(char **argv) FAST_FUNC;
+static int builtin_false(char **argv) FAST_FUNC;
 #if ENABLE_HUSH_JOB
 static int builtin_fg_bg(char **argv) FAST_FUNC;
 static int builtin_jobs(char **argv) FAST_FUNC;
@@ -918,6 +919,7 @@ static const struct built_in_command bltins1[] = {
 	BLTIN("exec"     , builtin_exec    , "Execute command, don't return to shell"),
 	BLTIN("exit"     , builtin_exit    , "Exit"),
 	BLTIN("export"   , builtin_export  , "Set environment variables"),
+	BLTIN("false"    , builtin_false   , NULL),
 #if ENABLE_HUSH_JOB
 	BLTIN("fg"       , builtin_fg_bg   , "Bring job into the foreground"),
 #endif
@@ -8667,6 +8669,11 @@ int msh_main(int argc, char **argv)
 /*
  * Built-ins
  */
+static int FAST_FUNC builtin_false(char **argv UNUSED_PARAM)
+{
+	return 1;
+}
+
 static int FAST_FUNC builtin_true(char **argv UNUSED_PARAM)
 {
 	return 0;
