@@ -506,8 +506,10 @@ int unzip_main(int argc, char **argv)
 	}
 
 	/* Change dir if necessary */
-	if (base_dir)
+	if (base_dir) {
+		mkdir(base_dir, 0755);
 		xchdir(base_dir);
+	}
 
 	if (quiet <= 1) { /* not -qq */
 		if (quiet == 0)
