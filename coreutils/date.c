@@ -170,6 +170,15 @@ static const char date_longopts[] ALIGN1 =
 		;
 #endif
 
+#ifdef __APPLE__
+static int stime(time_t *t);
+static int stime(time_t *t)
+{
+	errno = EPERM;
+	return -1;
+}
+#endif
+
 int date_main(int argc, char **argv) MAIN_EXTERNALLY_VISIBLE;
 int date_main(int argc UNUSED_PARAM, char **argv)
 {
