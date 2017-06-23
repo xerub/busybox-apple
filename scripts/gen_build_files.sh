@@ -47,7 +47,7 @@ generate()
 }
 
 # (Re)generate include/applets.h
-sed -n 's@^//applet:@@p' "$srctree"/*/*.c "$srctree"/*/*/*.c \
+cat "$srctree"/*/*.c "$srctree"/*/*/*.c | sed -n 's@^//applet:@@p' \
 | generate \
 	"$srctree/include/applets.src.h" \
 	"include/applets.h" \
@@ -61,9 +61,9 @@ TAB="$(printf '\tX')"
 TAB="${TAB%X}"
 LF="$(printf '\nX')"
 LF="${LF%X}"
+cat "$srctree"/*/*.c "$srctree"/*/*/*.c | \
 sed -n -e 's@^//usage:\([ '"$TAB"'].*\)$@\1 \\@p' \
        -e 's@^//usage:\([^ '"$TAB"'].*\)$@\'"$LF"'\1 \\@p' \
-	"$srctree"/*/*.c "$srctree"/*/*/*.c \
 | generate \
 	"$srctree/include/usage.src.h" \
 	"include/usage.h" \
