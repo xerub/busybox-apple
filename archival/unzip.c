@@ -702,7 +702,14 @@ int unzip_main(int argc, char **argv)
 						bb_perror_msg_and_die("can't stat '%s'", dst_fn);
 					}
 					if (!quiet) {
+#if ENABLE_DESKTOP
+						printf("   creating: ");
+						if (base_dir)
+							printf("%s/", base_dir);
+						printf("%s\n", dst_fn);
+#else
 						printf("   creating: %s\n", dst_fn);
+#endif
 					}
 					unzip_create_leading_dirs(dst_fn);
 					if (bb_make_directory(dst_fn, dir_mode, FILEUTILS_IGNORE_CHMOD_ERR)) {
@@ -758,7 +765,14 @@ int unzip_main(int argc, char **argv)
 #endif
 		case -1: /* Unzip */
 			if (!quiet) {
+#if ENABLE_DESKTOP
+				printf("  inflating: ");
+				if (base_dir)
+					printf("%s/", base_dir);
+				printf("%s\n", dst_fn);
+#else
 				printf("  inflating: %s\n", dst_fn);
+#endif
 			}
 			unzip_extract(&zip_header, dst_fd);
 			if (dst_fd != STDOUT_FILENO) {
