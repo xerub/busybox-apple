@@ -25,6 +25,10 @@
  * The code was modified by Bart Visscher <magick@linux-fan.com>
  */
 
+#ifdef __APPLE__
+#include <arpa/inet.h>
+#include <netinet/ip.h>
+#endif
 #include <net/if.h>
 #include <netinet/ip_icmp.h>
 #include "libbb.h"
@@ -46,10 +50,22 @@
 # define ICMP_ADDRESSREPLY   18  /* Address Mask Reply    */
 #endif
 
+#ifdef __APPLE__
+#define ICMP_DEST_UNREACH	ICMP_UNREACH
+#define ICMP_SOURCE_QUENCH	ICMP_SOURCEQUENCH
+#define ICMP_TIME_EXCEEDED	ICMP_TIMXCEED
+#define ICMP_PARAMETERPROB	ICMP_PARAMPROB
+#define ICMP_TIMESTAMP		ICMP_TSTAMP
+#define ICMP_TIMESTAMPREPLY	ICMP_TSTAMPREPLY
+#define ICMP_INFO_REQUEST	ICMP_IREQ
+#define ICMP_INFO_REPLY		ICMP_IREQREPLY
+#define ICMP_ADDRESS		ICMP_MASKREQ
+#define ICMP_ADDRESSREPLY	ICMP_MASKREPLY
+#endif
+
 //config:config PING
 //config:	bool "ping"
 //config:	default y
-//config:	select PLATFORM_LINUX
 //config:	help
 //config:	  ping uses the ICMP protocol's mandatory ECHO_REQUEST datagram to
 //config:	  elicit an ICMP ECHO_RESPONSE from a host or gateway.
@@ -227,9 +243,15 @@ static void ping4(len_and_sockaddr *lsa)
 			continue;
 		}
 		if (c >= 76) {			/* ip + icmp */
+#ifdef __APPLE__
+			struct ip *iphdr = (struct ip *) G.packet;
+
+			pkt = (struct icmp *) (G.packet + (iphdr->ip_hl << 2));	/* skip ip hdr */
+#else
 			struct iphdr *iphdr = (struct iphdr *) G.packet;
 
 			pkt = (struct icmp *) (G.packet + (iphdr->ihl << 2));	/* skip ip hdr */
+#endif
 			if (pkt->icmp_id != G.myid)
 				continue; /* not our ping */
 			if (pkt->icmp_type == ICMP_ECHOREPLY)
@@ -628,7 +650,11 @@ static void unpack_tail(int sz, uint32_t *tp,
 static void unpack4(char *buf, int sz, struct sockaddr_in *from)
 {
 	struct icmp *icmppkt;
+#ifdef __APPLE__
+	struct ip *iphdr;
+#else
 	struct iphdr *iphdr;
+#endif
 	int hlen;
 
 	/* discard if too short */
@@ -636,8 +662,13 @@ static void unpack4(char *buf, int sz, struct sockaddr_in *from)
 		return;
 
 	/* check IP header */
+#ifdef __APPLE__
+	iphdr = (struct ip *) buf;
+	hlen = iphdr->ip_hl << 2;
+#else
 	iphdr = (struct iphdr *) buf;
 	hlen = iphdr->ihl << 2;
+#endif
 	sz -= hlen;
 	icmppkt = (struct icmp *) (buf + hlen);
 	if (icmppkt->icmp_id != myid)
@@ -649,9 +680,15 @@ static void unpack4(char *buf, int sz, struct sockaddr_in *from)
 
 		if (sz >= ICMP_MINLEN + sizeof(uint32_t))
 			tp = (uint32_t *) icmppkt->icmp_data;
+#ifdef __APPLE__
+		unpack_tail(sz, tp,
+			inet_ntoa(*(struct in_addr *) &from->sin_addr.s_addr),
+			recv_seq, iphdr->ip_ttl);
+#else
 		unpack_tail(sz, tp,
 			inet_ntoa(*(struct in_addr *) &from->sin_addr.s_addr),
 			recv_seq, iphdr->ttl);
+#endif
 	} else if (icmppkt->icmp_type != ICMP_ECHO) {
 		bb_error_msg("warning: got ICMP %d (%s)",
 				icmppkt->icmp_type,
