@@ -8708,10 +8708,16 @@ evaltree(union node *n, int flags)
 	return exitstatus;
 }
 
+#ifdef __APPLE__
+/* darwin does not support alias */
+/*#define evaltreenr evaltree*/
+static int evaltreenr(union node *, int) __attribute__ ((weakref("evaltree"), __noreturn__));
+#else
 #if !defined(__alpha__) || (defined(__GNUC__) && __GNUC__ >= 3)
 static
 #endif
 int evaltreenr(union node *, int) __attribute__ ((alias("evaltree"),__noreturn__));
+#endif
 
 static int
 skiploop(void)
