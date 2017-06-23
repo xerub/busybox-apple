@@ -778,6 +778,16 @@ int unzip_main(int argc, char **argv)
 			if (dst_fd != STDOUT_FILENO) {
 				/* closing STDOUT is potentially bad for future business */
 				close(dst_fd);
+#if ENABLE_DESKTOP
+				if (S_ISLNK(file_mode)) {
+					size_t maxsz = PATH_MAX;
+					char *buf = xmalloc_xopen_read_close(dst_fn, &maxsz); /* adds trailing nul */
+					xunlink(dst_fn);
+					if (symlink(buf, dst_fn))
+						bb_perror_msg_and_die("can't create link");
+					free(buf);
+				}
+#endif
 			}
 			break;
 
