@@ -661,15 +661,13 @@ int unzip_main(int argc, char **argv)
 						dtbuf,
 						dst_fn);
 				} else {
-					unsigned long percents = zip_header.formatted.ucmpsize - zip_header.formatted.cmpsize;
-					if ((int32_t)percents < 0)
-						percents = 0; /* happens if ucmpsize < cmpsize */
+					long percents = zip_header.formatted.ucmpsize - zip_header.formatted.cmpsize;
 					percents = percents * 100;
 					if (zip_header.formatted.ucmpsize)
-						percents /= zip_header.formatted.ucmpsize;
+						percents /= (long)zip_header.formatted.ucmpsize;
 					//      " Length   Method    Size  Cmpr    Date    Time   CRC-32   Name\n"
 					//      "--------  ------  ------- ---- ---------- ----- --------  ----"
-					printf(      "%8u  %s"        "%9u%4u%% " "%s "         "%08x  "  "%s\n",
+					printf(      "%8u  %s"        "%9u %3ld%% " "%s "         "%08x  "  "%s\n",
 						(unsigned)zip_header.formatted.ucmpsize,
 						zip_header.formatted.method == 0 ? "Stored" : "Defl:N", /* Defl is method 8 */
 /* TODO: show other methods?
@@ -686,7 +684,7 @@ int unzip_main(int argc, char **argv)
  * 12 - BZIP2
  */
 						(unsigned)zip_header.formatted.cmpsize,
-						(unsigned)percents,
+						percents,
 						dtbuf,
 						zip_header.formatted.crc32,
 						dst_fn);
@@ -802,18 +800,16 @@ int unzip_main(int argc, char **argv)
 				"",
 				total_usize, "", total_entries);
 		} else {
-			unsigned long percents = total_usize - total_size;
-			if ((long)percents < 0)
-				percents = 0; /* happens if usize < size */
+			long percents = total_usize - total_size;
 			percents = percents * 100;
 			if (total_usize)
-				percents /= total_usize;
+				percents /= (long)total_usize;
 			//	" Length   Method    Size  Cmpr    Date    Time   CRC-32   Name\n"
 			//	"--------  ------  ------- ---- ---------- ----- --------  ----"
 			printf( "--------          ------- ----%28s"                      "----\n"
-				"%8lu"              "%17lu%4u%%%28s"                      "%u files\n",
+				"%8lu"              "%17lu %3ld%%%28s"                      "%u files\n",
 				"",
-				total_usize, total_size, (unsigned)percents, "",
+				total_usize, total_size, percents, "",
 				total_entries);
 		}
 	}
