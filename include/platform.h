@@ -450,6 +450,8 @@ typedef unsigned smalluint;
 #endif
 
 #if defined(__APPLE__)
+# undef HAVE_MEMRCHR
+# undef HAVE_MEMPCPY
 # undef HAVE_STRCHRNUL
 #endif
 
