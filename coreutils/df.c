@@ -78,8 +78,12 @@
 //usage:       "Filesystem          512-blocks      Used Available Capacity Mounted on\n"
 //usage:       "/dev/sda3             17381728  17107080    274648      98% /\n"
 
+#ifdef __APPLE__
+#include <sys/mount.h>
+#else
 #include <mntent.h>
 #include <sys/vfs.h>
+#endif
 #include "libbb.h"
 #include "unicode.h"
 
@@ -98,8 +102,13 @@ int df_main(int argc UNUSED_PARAM, char **argv)
 	unsigned long df_disp_hr = 1024;
 	int status = EXIT_SUCCESS;
 	unsigned opt;
+#ifdef __APPLE__
+	int i = 0, j = 0;
+	struct statfs *mount_table;
+#else
 	FILE *mount_table;
 	struct mntent *mount_entry;
+#endif
 	struct statfs s;
 
 	enum {
@@ -177,9 +186,15 @@ int df_main(int argc UNUSED_PARAM, char **argv)
 	mount_table = NULL;
 	argv += optind;
 	if (!argv[0]) {
+#ifdef __APPLE__
+		j = getmntinfo(&mount_table, 0);
+		if (!j)
+			bb_perror_msg_and_die("getmntinfo");
+#else
 		mount_table = setmntent(bb_path_mtab_file, "r");
 		if (!mount_table)
 			bb_perror_msg_and_die(bb_path_mtab_file);
+#endif
 	}
 
 	while (1) {
@@ -187,6 +202,29 @@ int df_main(int argc UNUSED_PARAM, char **argv)
 		const char *mount_point;
 		const char *fs_type;
 
+#ifdef __APPLE__
+#define f_frsize f_reserved[0]
+		if (mount_table) {
+			if (i >= j) {
+				break;
+			}
+			s = mount_table[i++];
+		} else {
+			mount_point = *argv++;
+			if (!mount_point)
+				break;
+			if (statfs(mount_point, &s)) {
+				bb_simple_perror_msg(mount_point);
+ set_error:
+				status = EXIT_FAILURE;
+				continue;
+			}
+		}
+
+		device = s.f_mntfromname;
+		mount_point = s.f_mntonname;
+		fs_type = s.f_fstypename;
+#else
 		if (mount_table) {
 			mount_entry = getmntent(mount_table);
 			if (!mount_entry) {
@@ -214,6 +252,7 @@ int df_main(int argc UNUSED_PARAM, char **argv)
 			bb_simple_perror_msg(mount_point);
 			goto set_error;
 		}
+#endif
 		/* Some uclibc versions were seen to lose f_frsize
 		 * (kernel does return it, but then uclibc does not copy it)
 		 */
