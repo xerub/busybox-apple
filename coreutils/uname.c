@@ -84,6 +84,10 @@
 #include "libbb.h"
 /* After libbb.h, since it needs sys/types.h on some systems */
 #include <sys/utsname.h>
+#ifdef __APPLE__
+#include <sys/sysctl.h>
+#include <mach-o/arch.h>
+#endif
 
 typedef struct {
 	struct utsname name;
@@ -139,7 +143,11 @@ int uname_main(int argc UNUSED_PARAM, char **argv)
 	}
 
 	if (toprint & (1 << 8)) { /* -a => all opts on */
+#ifdef __APPLE__
+		toprint = (1 << 5) - 1;
+#else
 		toprint = (1 << 8) - 1;
+#endif
 		unknown_str = ""; /* -a does not print unknown fields */
 	}
 
@@ -154,9 +162,36 @@ int uname_main(int argc UNUSED_PARAM, char **argv)
 		strcpy(uname_info.name.machine, "sparc");
 	}
 #endif
+#ifdef __APPLE__
+{
+	static int mib[] = { CTL_HW, HW_MODEL };
+	size_t s;
+#if 0 /* XXX arm64? */
+	cpu_type_t cputype;
+	s = sizeof(cputype);
+	strcpy(uname_info.processor, unknown_str);
+	if (sysctlbyname ("hw.cputype", &cputype, &s, 0, 0) >= 0) { /* mib: CTL_HW, 105 */
+	    const NXArchInfo *a = NXGetArchInfoFromCpuType(cputype, CPU_SUBTYPE_MULTIPLE);
+	    if (a) {
+		strcpy(uname_info.processor, a->name);
+	    }
+	}
+#elif defined __arm__ || defined __arm64__
+	strcpy(uname_info.processor, "arm");
+#else
+	strcpy(uname_info.processor, "i386");
+#endif
+	s = sizeof(uname_info.platform);
+	if (sysctl (mib, 2, uname_info.platform, &s, 0, 0) < 0) {
+	    strcpy(uname_info.platform, unknown_str);
+	}
+	strcpy(uname_info.os, "Darwin"); /* < sizeof("GNU/Linux") */
+}
+#else
 	strcpy(uname_info.processor, unknown_str);
 	strcpy(uname_info.platform, unknown_str);
 	strcpy(uname_info.os, CONFIG_UNAME_OSNAME);
+#endif
 #if 0
 	/* Fedora does something like this */
 	strcpy(uname_info.processor, uname_info.name.machine);
