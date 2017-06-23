@@ -134,6 +134,10 @@ int passwd_main(int argc UNUSED_PARAM, char **argv)
 	opt = getopt32(argv, "a:lud", &opt_a);
 	//argc -= optind;
 	argv += optind;
+#ifdef __APPLE__
+	if (*opt_a != 'd')
+		bb_error_msg_and_die("this platform supports only DES");
+#endif
 
 	myuid = getuid();
 	/* -l, -u, -d require root priv and username argument */
@@ -226,6 +230,10 @@ int passwd_main(int argc UNUSED_PARAM, char **argv)
 	{
 		filename = bb_path_passwd_file;
 		rc = update_passwd(bb_path_passwd_file, name, newp, NULL);
+#ifdef __APPLE__
+		filename = _PATH_MASTERPASSWD;
+		rc = update_passwd(_PATH_MASTERPASSWD, name, newp, NULL);
+#endif
 	}
 	/* LOGMODE_BOTH */
 	if (rc < 0)
