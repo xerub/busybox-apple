@@ -145,9 +145,16 @@
    || defined(__APPLE__)
 # include <sys/resource.h>  /* rlimit */
 # include <machine/endian.h>
+# ifdef __APPLE__
+# include <libkern/OSByteOrder.h>
+# define bswap_64 OSSwapInt64
+# define bswap_32 OSSwapInt32
+# define bswap_16 OSSwapInt16
+# else
 # define bswap_64 __bswap64
 # define bswap_32 __bswap32
 # define bswap_16 __bswap16
+# endif
 #else
 # include <byteswap.h>
 # include <endian.h>
