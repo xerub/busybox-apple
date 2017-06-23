@@ -411,6 +411,111 @@ int unzip_main(int argc, char **argv)
  */
 
 	x_opt_seen = 0;
+#ifndef __GLIBC__
+	/*
+	state 0:
+	    opt(all including -d, but no -x)
+	    if (file)
+	        src_fn
+	        if (has -d)   state = 2 (takes: file, -x)
+	        if (NOT -d)   state = 1 (takes: file, -x, -d)
+	state 1:
+	    opt(-d) out_dir,  state = 2 (takes: file, -x)
+	    opt(-x)           state = 3 (takes: file, -d)
+	    if (file) accept, stay
+	state 2:
+	    opt(-x)           state = 4 (takes: file)
+	    if (file) accept, stay
+	state 3:
+	    opt(-d) out_dir,  state = 5 (takes: nothing)
+	    if (file) reject, stay
+	state 4:
+	    if (file) reject, stay
+	state 5:
+	    if (file) error
+	*/
+    again:
+	while ((opt = getopt(argc, argv, "d:lnopqxv")) != -1) {
+		switch (x_opt_seen) {
+		case 0: /* Options */
+			switch (opt) {
+			case 'd':  /* Extract to base directory */
+				base_dir = optarg;
+				break;
+
+			case 'l': /* List */
+				listing = 1;
+				break;
+
+			case 'n': /* Never overwrite existing files */
+				overwrite = O_NEVER;
+				break;
+
+			case 'o': /* Always overwrite existing files */
+				overwrite = O_ALWAYS;
+				break;
+
+			case 'p': /* Extract files to stdout and fall through to set verbosity */
+				dst_fd = STDOUT_FILENO;
+				/* fall through */
+
+			case 'q': /* Be quiet */
+				quiet++;
+				break;
+
+			case 'v': /* Verbose list */
+				IF_DESKTOP(verbose++;)
+				listing = 1;
+				break;
+
+			default:
+				bb_show_usage();
+			}
+			break;
+
+		case 1:
+			if (opt == 'd') {
+				base_dir = optarg;
+				x_opt_seen = 2;
+				break;
+			}
+			/* fall through */
+		case 2:
+			if (opt == 'x') {
+				x_opt_seen += 2;
+				break;
+			}
+			bb_show_usage();
+		case 3:
+			if (opt == 'd') {
+				base_dir = optarg;
+				x_opt_seen = 5;
+				break;
+			}
+			/* fall through */
+		default:
+			bb_show_usage();
+		}
+	}
+	if (optind < argc) {
+		if (x_opt_seen == 0) { /* The zip file */
+			/* +5: space for ".zip" and NUL */
+			src_fn = xmalloc(strlen(argv[optind]) + 5);
+			strcpy(src_fn, argv[optind]);
+			x_opt_seen = base_dir ? 2 : 1;
+		} else if (x_opt_seen <= 2) {
+			/* Include files */
+			llist_add_to(&zaccept, argv[optind]);
+		} else if (x_opt_seen <= 4) {
+			/* Exclude files */
+			llist_add_to(&zreject, argv[optind]);
+		} else {
+			bb_show_usage();
+		}
+		optind++;
+		goto again;
+	}
+#else
 	/* '-' makes getopt return 1 for non-options */
 	while ((opt = getopt(argc, argv, "-d:lnopqxv")) != -1) {
 		switch (opt) {
@@ -482,6 +587,7 @@ int unzip_main(int argc, char **argv)
 		while (*++argv)
 			llist_add_to(&zaccept, *argv);
 	}
+#endif
 #endif
 
 	if (!src_fn) {
