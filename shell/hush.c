@@ -816,6 +816,7 @@ struct globals {
 #endif
 	char **traps; /* char *traps[NSIG] */
 	sigset_t pending_set;
+	int pending_set_is_not_empty;
 #if HUSH_DEBUG
 	unsigned long memleak_value;
 	int debug_indent;
@@ -1538,6 +1539,7 @@ enum {
 
 static void record_pending_signo(int sig)
 {
+	G.pending_set_is_not_empty = 1;
 	sigaddset(&G.pending_set, sig);
 #if ENABLE_HUSH_FAST
 	if (sig == SIGCHLD) {
@@ -1715,7 +1717,7 @@ static int check_and_run_traps(void)
 	while (1) {
 		int sig;
 
-		if (sigisemptyset(&G.pending_set))
+		if (!G.pending_set_is_not_empty)
 			break;
 		sig = 0;
 		do {
@@ -1725,6 +1727,7 @@ static int check_and_run_traps(void)
 				goto got_sig;
 			}
 		} while (sig < NSIG);
+		G.pending_set_is_not_empty = 0;
 		break;
  got_sig:
 		if (G.traps && G.traps[sig]) {
@@ -9527,7 +9530,7 @@ static int wait_for_child_or_signal(struct pipe *waitfor_pipe, pid_t waitfor_pid
 		int sig;
 		sigset_t oldset;
 
-		if (!sigisemptyset(&G.pending_set))
+		if (G.pending_set_is_not_empty)
 			goto check_sig;
 
 		/* waitpid is not interruptible by SA_RESTARTed
@@ -9542,7 +9545,7 @@ static int wait_for_child_or_signal(struct pipe *waitfor_pipe, pid_t waitfor_pid
 		sigfillset(&oldset); /* block all signals, remember old set */
 		sigprocmask(SIG_SETMASK, &oldset, &oldset);
 
-		if (!sigisemptyset(&G.pending_set)) {
+		if (G.pending_set_is_not_empty) {
 			/* Crap! we raced with some signal! */
 			goto restore;
 		}
