@@ -76,6 +76,7 @@ const char* FAST_FUNC get_cached_groupname(gid_t gid)
 }
 
 
+#ifndef __APPLE__
 #define PROCPS_BUFSIZE 1024
 
 static int read_to_buf(const char *filename, void *buf)
@@ -655,3 +656,4 @@ void FAST_FUNC read_cmdline(char *buf, int col, unsigned pid, const char *comm)
 		eip,
 the rest is some obsolete cruft
 */
+#endif

@@ -1,3 +1,4 @@
+#ifndef __APPLE__
 /* vi: set sw=4 ts=4: */
 /*
  * Utility routines.
@@ -67,3 +68,4 @@ struct mntent* FAST_FUNC find_mount_point(const char *name, int subdir_too)
 
 	return mountEntry;
 }
+#endif
