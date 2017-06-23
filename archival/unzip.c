@@ -26,6 +26,14 @@
 //config:	  (with no options) is to extract the archive into the
 //config:	  current directory. Use the `-d' option to extract to a
 //config:	  directory of your choice.
+//config:
+//config:config FEATURE_FANCY_UNZIP
+//config:	bool "Better support for zipfiles"
+//config:	default y
+//config:	depends on UNZIP
+//config:	help
+//config:	  If you enable this option you'll be able to extract
+//config:	  archives with zip flag 8.
 
 //applet:IF_UNZIP(APPLET(unzip, BB_DIR_USR_BIN, BB_SUID_DROP))
 //kbuild:lib-$(CONFIG_UNZIP) += unzip.o
@@ -143,7 +151,7 @@ struct BUG_cdf_header_must_be_42_bytes {
 	(cdf_header).formatted.file_name_length = SWAP_LE16((cdf_header).formatted.file_name_length); \
 	(cdf_header).formatted.extra_field_length = SWAP_LE16((cdf_header).formatted.extra_field_length); \
 	(cdf_header).formatted.file_comment_length = SWAP_LE16((cdf_header).formatted.file_comment_length); \
-	IF_DESKTOP( \
+	IF_FEATURE_FANCY_UNZIP( \
 	(cdf_header).formatted.version_made_by = SWAP_LE16((cdf_header).formatted.version_made_by); \
 	(cdf_header).formatted.external_file_attributes = SWAP_LE32((cdf_header).formatted.external_file_attributes); \
 	) \
@@ -178,7 +186,7 @@ struct BUG_cde_header_must_be_16_bytes {
 enum { zip_fd = 3 };
 
 
-#if ENABLE_DESKTOP
+#if ENABLE_FEATURE_FANCY_UNZIP
 
 /* Seen in the wild:
  * Self-extracting PRO2K3XP_32.exe contains 19078464 byte zip archive,
@@ -345,7 +353,7 @@ int unzip_main(int argc, char **argv)
 	smallint listing = 0;
 	smallint overwrite = O_PROMPT;
 	smallint x_opt_seen;
-#if ENABLE_DESKTOP
+#if ENABLE_FEATURE_FANCY_UNZIP
 	uint32_t cdf_offset;
 #endif
 	unsigned long total_usize;
@@ -547,13 +555,13 @@ int unzip_main(int argc, char **argv)
 	total_usize = 0;
 	total_size = 0;
 	total_entries = 0;
-#if ENABLE_DESKTOP
+#if ENABLE_FEATURE_FANCY_UNZIP
 	cdf_offset = 0;
 #endif
 	while (1) {
 		uint32_t magic;
 		mode_t dir_mode = 0777;
-#if ENABLE_DESKTOP
+#if ENABLE_FEATURE_FANCY_UNZIP
 		mode_t file_mode = 0666;
 #endif
 
@@ -564,7 +572,7 @@ int unzip_main(int argc, char **argv)
 			dbg("got ZIP_CDF_MAGIC");
 			break;
 		}
-#if ENABLE_DESKTOP
+#if ENABLE_FEATURE_FANCY_UNZIP
 		/* Data descriptor? It was a streaming file, go on */
 		if (magic == ZIP_DD_MAGIC) {
 			dbg("got ZIP_DD_MAGIC");
@@ -583,7 +591,7 @@ int unzip_main(int argc, char **argv)
 		if ((zip_header.formatted.method != 0) && (zip_header.formatted.method != 8)) {
 			bb_error_msg_and_die("unsupported method %d", zip_header.formatted.method);
 		}
-#if !ENABLE_DESKTOP
+#if !ENABLE_FEATURE_FANCY_UNZIP
 		if (zip_header.formatted.zip_flags & SWAP_LE16(0x0009)) {
 			bb_error_msg_and_die("zip flags 1 and 8 are not supported");
 		}
@@ -702,7 +710,7 @@ int unzip_main(int argc, char **argv)
 						bb_perror_msg_and_die("can't stat '%s'", dst_fn);
 					}
 					if (!quiet) {
-#if ENABLE_DESKTOP
+#if ENABLE_FEATURE_FANCY_UNZIP
 						printf("   creating: ");
 						if (base_dir)
 							printf("%s/", base_dir);
@@ -758,14 +766,14 @@ int unzip_main(int argc, char **argv)
 			overwrite = O_ALWAYS;
 		case 'y': /* Open file and fall into unzip */
 			unzip_create_leading_dirs(dst_fn);
-#if ENABLE_DESKTOP
+#if ENABLE_FEATURE_FANCY_UNZIP
 			dst_fd = xopen3(dst_fn, O_WRONLY | O_CREAT | O_TRUNC, file_mode);
 #else
 			dst_fd = xopen(dst_fn, O_WRONLY | O_CREAT | O_TRUNC);
 #endif
 		case -1: /* Unzip */
 			if (!quiet) {
-#if ENABLE_DESKTOP
+#if ENABLE_FEATURE_FANCY_UNZIP
 				printf("  inflating: ");
 				if (base_dir)
 					printf("%s/", base_dir);
@@ -778,7 +786,7 @@ int unzip_main(int argc, char **argv)
 			if (dst_fd != STDOUT_FILENO) {
 				/* closing STDOUT is potentially bad for future business */
 				close(dst_fd);
-#if ENABLE_DESKTOP
+#if ENABLE_FEATURE_FANCY_UNZIP
 				if (S_ISLNK(file_mode)) {
 					size_t maxsz = PATH_MAX;
 					char *buf = xmalloc_xopen_read_close(dst_fn, &maxsz); /* adds trailing nul */
