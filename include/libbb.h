@@ -1862,10 +1862,24 @@ struct globals;
 extern struct globals *const ptr_to_globals;
 /* At least gcc 3.4.6 on mipsel system needs optimization barrier */
 #define barrier() __asm__ __volatile__("":::"memory")
-#define SET_PTR_TO_GLOBALS(x) do { \
-	(*(struct globals**)&ptr_to_globals) = (void*)(x); \
+#if defined(__clang_major__) && __clang_major__ >= 9
+/* Clang/llvm drops assignment to "constant" storage. Silently.
+ * Needs serious convincing to not eliminate the store.
+ */
+/* XZALLOC_CONST_PTR() is an out-of-line function to prevent
+ * clang from reading pointer before it is assigned.
+ */
+void XZALLOC_CONST_PTR(const void *pptr, size_t size) FAST_FUNC;
+void ASSIGN_CONST_PTR(const void *pptr, void *val) FAST_FUNC;
+#else
+# define ASSIGN_CONST_PTR(pptr, v) do { \
+	*(void**)(pptr) = (void*)(v); \
+	/* At least gcc 3.4.6 on mipsel needs optimization barrier */ \
 	barrier(); \
 } while (0)
+# define XZALLOC_CONST_PTR(pptr, size) ASSIGN_CONST_PTR(pptr, xzalloc(size))
+#endif
+#define SET_PTR_TO_GLOBALS(x) ASSIGN_CONST_PTR(&ptr_to_globals, x)
 #define FREE_PTR_TO_GLOBALS() do { \
 	if (ENABLE_FEATURE_CLEAN_UP) { \
 		free(ptr_to_globals); \

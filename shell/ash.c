@@ -395,8 +395,7 @@ extern struct globals_misc *const ash_ptr_to_globals_misc;
 #define random_gen  (G_misc.random_gen )
 #define backgndpid  (G_misc.backgndpid )
 #define INIT_G_misc() do { \
-	(*(struct globals_misc**)&ash_ptr_to_globals_misc) = xzalloc(sizeof(G_misc)); \
-	barrier(); \
+	XZALLOC_CONST_PTR(&ash_ptr_to_globals_misc, sizeof(G_misc)); \
 	curdir = nullstr; \
 	physdir = nullstr; \
 	trap_ptr = trap; \
@@ -1426,8 +1425,7 @@ extern struct globals_memstack *const ash_ptr_to_globals_memstack;
 #define g_stacknleft (G_memstack.g_stacknleft)
 #define stackbase    (G_memstack.stackbase   )
 #define INIT_G_memstack() do { \
-	(*(struct globals_memstack**)&ash_ptr_to_globals_memstack) = xzalloc(sizeof(G_memstack)); \
-	barrier(); \
+	XZALLOC_CONST_PTR(&ash_ptr_to_globals_memstack, sizeof(G_memstack)); \
 	g_stackp = &stackbase; \
 	g_stacknxt = stackbase.space; \
 	g_stacknleft = MINSIZE; \
@@ -1979,8 +1977,7 @@ extern struct globals_var *const ash_ptr_to_globals_var;
 #define varinit       (G_var.varinit      )
 #define INIT_G_var() do { \
 	unsigned i; \
-	(*(struct globals_var**)&ash_ptr_to_globals_var) = xzalloc(sizeof(G_var)); \
-	barrier(); \
+	XZALLOC_CONST_PTR(&ash_ptr_to_globals_var, sizeof(G_var)); \
 	for (i = 0; i < ARRAY_SIZE(varinit_data); i++) { \
 		varinit[i].flags    = varinit_data[i].flags; \
 		varinit[i].var_text = varinit_data[i].var_text; \
