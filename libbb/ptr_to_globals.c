@@ -15,7 +15,7 @@ struct globals;
  * but here we make it live in R/W memory */
 struct globals *ptr_to_globals = 0;
 
-#ifdef __GLIBC__
+#if defined __GLIBC__ || defined __APPLE__
 int *bb_errno;
 #endif
 

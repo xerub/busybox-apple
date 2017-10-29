@@ -278,6 +278,8 @@ void lbb_prepare(const char *applet
 #ifdef __GLIBC__
 	(*(int **)&bb_errno) = __errno_location();
 	barrier();
+#elif defined __APPLE__
+	ASSIGN_CONST_PTR(&bb_errno, __error());
 #endif
 	applet_name = applet;
 

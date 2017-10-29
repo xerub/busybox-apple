@@ -330,7 +330,7 @@ struct BUG_off_t_size_is_misdetected {
 #endif
 #endif
 
-#if defined(__GLIBC__)
+#if defined(__GLIBC__) || defined(__APPLE__)
 /* glibc uses __errno_location() to get a ptr to errno */
 /* We can just memorize it once - no multithreading in busybox :) */
 extern int *const bb_errno;
