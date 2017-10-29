@@ -11,7 +11,7 @@ struct lineedit_statics;
 
 /* We cheat here. It is declared as const ptr in libbb.h,
  * but here we make it live in R/W memory */
-struct lineedit_statics *lineedit_ptr_to_statics;
+struct lineedit_statics *lineedit_ptr_to_statics = 0;
 
 #else
 

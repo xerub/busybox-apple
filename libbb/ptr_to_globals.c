@@ -13,7 +13,7 @@ struct globals;
 
 /* We cheat here. It is declared as const ptr in libbb.h,
  * but here we make it live in R/W memory */
-struct globals *ptr_to_globals;
+struct globals *ptr_to_globals = 0;
 
 #ifdef __GLIBC__
 int *bb_errno;
