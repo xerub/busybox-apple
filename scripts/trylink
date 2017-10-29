@@ -91,9 +91,9 @@ if ! check_cc "-Wl,--sort-section,alignment"; then
     SORT_SECTION=""
 fi
 
-START_GROUP="-Wl,--start-group"
-END_GROUP="-Wl,--end-group"
-INFO_OPTS="-Wl,--warn-common -Wl,-Map,$EXE.map -Wl,--verbose"
+START_GROUP=`check_cc "-Wl,--start-group" ""`
+END_GROUP=`check_cc "-Wl,--end-group" ""`
+INFO_OPTS=`check_cc "-Wl,--warn-common -Wl,-Map,$EXE.map -Wl,--verbose"`
 
 # gold may not support --sort-common (yet)
 SORT_COMMON="-Wl,--sort-common"

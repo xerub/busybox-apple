@@ -1,0 +1,8 @@
+#!/bin/sh
+
+NAME="__.SYMDEF SORTED"
+NLEN=${#NAME}
+SIZE=28
+
+printf '!<arch>\n%-16s%-12d%-6d%-6d%-8s%-10u`\n%s' "#1/20" `date +%s` $UID `id -g` "100644" $SIZE "$NAME"
+dd if=/dev/zero bs=`expr $SIZE - $NLEN` count=1 2>/dev/null

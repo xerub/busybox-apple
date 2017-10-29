@@ -61,6 +61,11 @@ as-option = $(shell if $(CC) $(CFLAGS) $(1) -Wa,-Z -c -o /dev/null \
 cc-option = $(shell if $(CC) $(CFLAGS) $(1) -S -o /dev/null -xc /dev/null \
              > /dev/null 2>&1; then echo "$(1)"; else echo "$(2)"; fi ;)
 
+cc-option-strict = $(shell $(CC) $(1) $(call cc-option,-Werror,) -S -o /dev/null -xc /dev/null \
+             > /dev/null 2>&1 && echo "$(1)")
+
+cc-options = $(foreach opt,$(1),$(call cc-option-strict,$(opt)))
+
 # hostcc-option
 # Usage: hostcflags-y += $(call hostcc-option, -march=winchip-c6, -march=i586)
 
