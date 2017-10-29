@@ -266,6 +266,18 @@ int64_t FAST_FUNC read_key(int fd, char *buffer, int timeout)
 	}
  got_all:
 
+	if (n == 0) {
+		/* naked ESC, wait for a known sequence */
+		buffer[-1] = 1;
+		buffer[0] = 27;
+		goto start_over;
+	}
+	if (n == 1 && buffer[0] == 27) {
+		/* ESC-ESC, pretend there was no key pressed */
+		buffer[-1] = 0;
+		goto start_over;
+	}
+
 	if (n <= 1) {
 		/* Alt-x is usually returned as ESC x.
 		 * Report ESC, x is remembered for the next call.
