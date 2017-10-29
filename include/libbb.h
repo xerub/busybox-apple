@@ -1843,7 +1843,11 @@ extern const char bb_path_wtmp_file[] ALIGN1;
 #define bb_path_motd_file "/etc/motd"
 
 #define bb_dev_null "/dev/null"
+#ifdef __APPLE__
+extern char *bb_busybox_exec_path;
+#else
 extern const char bb_busybox_exec_path[] ALIGN1;
+#endif
 /* util-linux manpage says /sbin:/bin:/usr/sbin:/usr/bin,
  * but I want to save a few bytes here */
 extern const char bb_PATH_root_path[] ALIGN1; /* "PATH=/sbin:/usr/sbin:/bin:/usr/bin" */

@@ -33,6 +33,9 @@
     )
 # include <malloc.h> /* for mallopt */
 #endif
+#ifdef __APPLE__
+#include <mach-o/dyld.h>
+#endif
 
 
 /* Declare <applet>_main() */
@@ -916,6 +919,13 @@ int lbb_main(char **argv)
 int main(int argc UNUSED_PARAM, char **argv)
 #endif
 {
+#if defined(__APPLE__) && (ENABLE_FEATURE_PREFER_APPLETS || ENABLE_FEATURE_SH_STANDALONE)
+	uint32_t size = MAXPATHLEN;
+	bb_busybox_exec_path = xmalloc(size);
+	while (_NSGetExecutablePath(bb_busybox_exec_path, &size) == -1) {
+		bb_busybox_exec_path = xrealloc(bb_busybox_exec_path, size);
+	}
+#endif
 #if 0
 	/* TODO: find a use for a block of memory between end of .bss
 	 * and end of page. For example, I'm getting "_end:0x812e698 2408 bytes"
